@@ -385,9 +385,13 @@ print(c("The number of unfilttered points is ", nrow(hourly_vertically_integrate
 
 print(c("The number of filttered points is ", nrow(hourly_vertically_integrated_temp_df_filtered)))
 
-write.csv(hourly_vertically_integrated_temp_df_filtered[],file =paste0("warm_core_points_",year_of_data,"_.txt"))
 
-write.csv(hourly_vertically_integrated_temp_df[],file =paste0("all_grid_with_filtervalues_",year_of_data,"_.txt"))
+write.table.ffdf(x= hourly_vertically_integrated_temp_df_filtered,
+                 file =paste0("warm_core_points_",year_of_data,"_.txt"))
+
+
+write.table.ffdf(x= hourly_vertically_integrated_temp_df,
+                 file =paste0("all_grid_with_filtervalues_",year_of_data,"_.txt"))
 
 
 
