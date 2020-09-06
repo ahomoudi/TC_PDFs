@@ -1,4 +1,5 @@
-# Probability distrubtion function  to obtain indetification thresholds for Tropical cyclones in climate models.
+# Probability distrubtion function  to obtain indetification thresholds for Tropical cyclones
+>>>>>>> 4ece7dcc3e59c0603fe26f487d5e3ac6c06ba960
  This code is written to calculate PDFs and statistical properties of the chosen 
  variables (vorticity, surface wind speed, and vertically integrated anomalous 
  temperature) according to :
