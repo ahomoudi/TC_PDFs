@@ -1,4 +1,4 @@
-#Probability distribution function to obtain identification thresholds for Tropical cyclones in climate models.
+#Probability distribution function to obtain identification thresholds for Tropical cyclones in climate models
 
  This code is written to calculate PDFs and statistical properties of the chosen 
  variables (vorticity, surface wind speed, and vertically integrated anomalous 
