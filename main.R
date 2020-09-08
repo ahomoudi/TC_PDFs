@@ -27,17 +27,19 @@ source("functions/numextract.R")
 #hPa in May, June, September, October and November (1990-2019)
 #for the region between (0-35°N) and (30°E-80°E)
 
-nc.files<-list.files(path = "example_data/", pattern = ".nc$")
+#nc.files<-list.files(path = "example_data/", pattern = ".nc$")
 
-#nc.files<-list.files(pattern = ".nc$")
+nc.files<-list.files(pattern = ".nc$")
 array_name<-vector(length = length(nc.files))
 
 for (i in 1:length(nc.files)) {
-  ncin<- nc_open(paste0("example_data/",nc.files[i]))                           #open netcdf file 
+  ncin<- nc_open(nc.files[i])                                                 #open netcdf file 
+  #ncin<- nc_open(paste0("example_data/",nc.files[i])) 
   variable_name<-ncin[["var"]][[1]][["name"]]                                   #get variable name 
   
   year_of_data <- strsplit(unlist(str_split(nc.files[i], "_"))[5],              #get year of the data 
                            "[.]")[[1]][1]
+  #6 instead of 5 for 1990
   
   array_name[i] <- paste0(variable_name,"_",year_of_data)		#store array names in a vector 
   
@@ -53,13 +55,13 @@ for (i in 1:length(nc.files)) {
   }
     
 
-  med<-ncvar_get(ncin,variable_name)			# get the variable 
-  longitude_v<-ncvar_get(ncin,"longitude")
-  latitude_v<-ncvar_get(ncin,"latitude")
-  raw_time<-ncvar_get(ncin,"time")
+  #med<-ncvar_get(ncin,variable_name)			# get the variable 
+  #longitude_v<-ncvar_get(ncin,"longitude")
+  #latitude_v<-ncvar_get(ncin,"latitude")
+  #raw_time<-ncvar_get(ncin,"time")
   
-  assign(array_name[i],ff(med,dimnames =  
-                         list(longitude_v,latitude_v,raw_time),dim = dim(med))) #save variable array on the disk
+  #assign(array_name[i],ff(med,dimnames =  
+                         #list(longitude_v,latitude_v,raw_time),dim = dim(med))) #save variable array on the disk
   
   rm(med,ncin)				# remove dummy variables 
   
@@ -67,7 +69,12 @@ for (i in 1:length(nc.files)) {
 # ==============================STEP1===========================================
 #Hourly vertically integrated temperature, the sum of the temperature at 
 #         700, 500, and 300 hPa in each grid point.
-temperature_on_levels <- grep(pattern = '00', x = array_name,value = TRUE)	#get temp from array name vector 
+
+temperature_on_levels<-c(grep(pattern = '300', x = array_name,value = TRUE),
+                         grep(pattern = '500', x = array_name,value = TRUE),
+                         grep(pattern = '700', x = array_name,value = TRUE))
+
+#temperature_on_levels <- grep(pattern = '00', x = array_name,value = TRUE)	#get temp from array name vector 
 
 hourly_vertically_integrated_temp<-ff(array(data = 0.0),dim = 
 	                  	dim(get(temperature_on_levels[1])))	#dummy variable 
@@ -78,6 +85,7 @@ for (i in  1:length(temperature_on_levels)){
     dim = dim(get(temperature_on_levels[1])),
     dimnames = dimnames(get(temperature_on_levels[1])))		#cumulative sum of temperature 
 }
+rm()
 # ==============================STEP2===========================================
 # A local average hourly vertically integrated temperature is calculated in a 
 #   square, 7X7 grid points, centred at the grid point of interest.
@@ -314,14 +322,14 @@ rm(list = temperature_on_levels)
 
 # ==============================STEP7===========================================  
 #The sea level pressure is the minimum in a centred 7X7 box.
-surface_pressure<-grep(pattern = 'sp', x = array_name,value = TRUE)
+surface_pressure<-grep(pattern = 'msl', x = array_name,value = TRUE)
 
-dyn.load("fortran_subroutines/pressure_minima.so")
+dyn.load("fortran_subroutines/pressure_minimum/lowest_pressure_eye_storm.so")
 
-is.loaded("minimum_press")
+is.loaded("eyeofthestorm")
 
 min_press_filter<- ff(array(data= 0.00),dim = dim(get(surface_pressure)))
-min_press_filter<-ff(.Fortran("minimum_press",
+min_press_filter<-ff(.Fortran("eyeofthestorm",
                               lon = as.integer(length(longitude_v)),
                               lat = as.integer(length(latitude_v)),
                               time = as.integer(length(raw_time)),
@@ -387,11 +395,11 @@ print(c("The number of filttered points is ", nrow(hourly_vertically_integrated_
 
 
 write.table.ffdf(x= hourly_vertically_integrated_temp_df_filtered,
-                 file =paste0("warm_core_points_",year_of_data,"_.txt"))
+                 file =paste0("/lustre/scratch2/ws/1/ahho623a-FRM_PDFs_project/Results/warm_core_points_",year_of_data,"_.txt"))
 
 
-write.table.ffdf(x= hourly_vertically_integrated_temp_df,
-                 file =paste0("all_grid_with_filtervalues_",year_of_data,"_.txt"))
+#write.table.ffdf(x= hourly_vertically_integrated_temp_df,
+                 #file =paste0("/lustre/scratch2/ws/1/ahho623a-FRM_PDFs_project/Results/all_grid_with_filtervalues_",year_of_data,"_.txt"))
 
 
 
