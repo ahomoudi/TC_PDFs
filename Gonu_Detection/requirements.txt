@@ -1,0 +1,7 @@
+dask[array]
+matplotlib
+netCDF4
+numpy
+pandas
+xarray
+geopandas
