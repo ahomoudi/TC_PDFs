@@ -23,8 +23,12 @@ proj_read_toff<- function(netcdf_file){
 	first_command<-paste0("cdo remapbil,proj_WAS.txt ",        #cdo command 
 		  file_name," ",
 		  output_file)
-	
-	system(first_command)		# call cdo in the system 
+	if (grepl("ua", nc.var, fixed = TRUE) == FALSE | grepl("va", nc.var, fixed = TRUE) == FALSE ){
+		system(first_command)	
+	}else{
+		
+	}
+			# call cdo in the system 
 	
 	ncin_cropped<- nc_open(output_file)		#open netcdf file 
 	
