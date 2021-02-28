@@ -20,6 +20,7 @@ workdir<-system("pwd",intern = TRUE)
 setwd(workdir)
 #2.sources======================================================================
 source("functions/numextract.R")
+source("")
 
 
 #2.Inputs=======================================================================
@@ -33,26 +34,27 @@ nc.files<-list.files(pattern = ".nc$")
 array_name<-vector(length = length(nc.files))
 
 for (i in 1:length(nc.files)) {
-  ncin<- nc_open(nc.files[i])                                                 #open netcdf file 
+  ncin<- nc_open(nc.files[i])                                                  #open netcdf file 
   #ncin<- nc_open(paste0("example_data/",nc.files[i])) 
-  variable_name<-ncin[["var"]][[1]][["name"]]                                   #get variable name 
-  
-  year_of_data <- strsplit(unlist(str_split(nc.files[i], "_"))[5],              #get year of the data 
+  variable_name<-ncin[["var"]][[2]][["name"]]                                   #get variable name 
+  # 1 for ERA5 data 
+  year_of_data <- strsplit(unlist(str_split(nc.files[i], "_"))[9],              #get year of the data 
                            "[.]")[[1]][1]
-  #6 instead of 5 for 1990
+  #6 instead of 5 for 1990/6 for ERA5 1991-2019
   
   array_name[i] <- paste0(variable_name,"_",year_of_data)		#store array names in a vector 
   
-  bla_bla<-numextract(unlist(str_split(nc.files[i], "_"))[3])	# extract pressure level if this is the case 
+  #needed in case of ERA5 
+  #bla_bla<-numextract(unlist(str_split(nc.files[i], "_"))[3])	# extract pressure level if this is the case 
   
-  if (!is.na(bla_bla)){
+  #if (!is.na(bla_bla)){
 
-      if(any(bla_bla==c("300","500","700","850"))){
+     # if(any(bla_bla==c("300","500","700","850"))){
         
-        press_lev  <- numextract(unlist(str_split(nc.files[i], "_"))[3])
-        array_name[i] <- paste0(variable_name,press_lev,"_",year_of_data)	# modifiy array name in case of press level
-      }
-  }
+       # press_lev  <- numextract(unlist(str_split(nc.files[i], "_"))[3])
+       # array_name[i] <- paste0(variable_name,press_lev,"_",year_of_data)	# modifiy array name in case of press level
+     # }
+  #}
     
 
   #med<-ncvar_get(ncin,variable_name)			# get the variable 
@@ -62,9 +64,11 @@ for (i in 1:length(nc.files)) {
   
   #assign(array_name[i],ff(med,dimnames =  
                          #list(longitude_v,latitude_v,raw_time),dim = dim(med))) #save variable array on the disk
+  #in case of CORDEX data 
+  assign(array_name[i],proj_read_toff(nc.files[i]))
   
-  rm(med,ncin)				# remove dummy variables 
-  
+  rm(ncin)				          # remove dummy variables 
+  #rm(med)
 }
 # ==============================STEP1===========================================
 #Hourly vertically integrated temperature, the sum of the temperature at 
@@ -85,7 +89,7 @@ for (i in  1:length(temperature_on_levels)){
     dim = dim(get(temperature_on_levels[1])),
     dimnames = dimnames(get(temperature_on_levels[1])))		#cumulative sum of temperature 
 }
-rm()
+#rm()
 # ==============================STEP2===========================================
 # A local average hourly vertically integrated temperature is calculated in a 
 #   square, 7X7 grid points, centred at the grid point of interest.

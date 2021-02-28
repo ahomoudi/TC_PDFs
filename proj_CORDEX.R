@@ -17,12 +17,12 @@ proj_read_toff<- function(netcdf_file){
 	nc.var<- ncin[["var"]][[2]][["name"]]		#varaible name 
 	
 	
-	first_command<-paste0("cdo -remapbil,proj_WAS.txt ",        #cdo command 
-		  file_name," ",
-		  output_file)
-		
 	output_file<- paste0(unlist(strsplit(file_name,"[.]"))[1],  #projected file name
 		 "_tmp.nc")
+	
+	first_command<-paste0("cdo remapbil,proj_WAS.txt ",        #cdo command 
+		  file_name," ",
+		  output_file)
 	
 	system(first_command)		# call cdo in the system 
 	
