@@ -16,10 +16,15 @@ library(reshape2)
 library(tidyverse)
 library(magrittr)
 library(stringr)
-workdir<-system("pwd",intern = TRUE)
+#workdir<-system("pwd",intern = TRUE)
 setwd(workdir)
+
+options(fftempdir = "/media/ahmed/Daten/ff")
+
+getOption("fftempdir")
+
 #2.sources======================================================================
-source("functions/numextract.R")
+source("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/functions/numextract.R")
 source("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/proj_CORDEX.R")
 
 
@@ -29,13 +34,14 @@ source("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/proj_CORDEX.R")
 #for the region between (0-35°N) and (30°E-80°E)
 
 nc.files<-list.files(pattern = ".nc$")
-nc.files<-nc.files[-c(1,2,4,5)]
+nc.files<-nc.files[-c(1)]
 
-
+nc.files
 
 array_name<-vector(length = length(nc.files))
 
 for (i in 1:length(nc.files)) {
+  
   ncin<- nc_open(nc.files[i])                                                  #open netcdf file 
   #ncin<- nc_open(paste0("example_data/",nc.files[i])) 
   variable_name<-ncin[["var"]][[2]][["name"]]                                   #get variable name 
@@ -45,40 +51,93 @@ for (i in 1:length(nc.files)) {
   #6 instead of 5 for 1990/6 for ERA5 1991-2019
   
   array_name[i] <- paste0(variable_name,"_",year_of_data)		#store array names in a vector 
-
-# ERA5 only ---------------------------------------------------------------
-
-  #needed in case of ERA5 
-  #bla_bla<-numextract(unlist(str_split(nc.files[i], "_"))[3])	# extract pressure level if this is the case 
-  
-  #if (!is.na(bla_bla)){
-
-     # if(any(bla_bla==c("300","500","700","850"))){
-        
-       # press_lev  <- numextract(unlist(str_split(nc.files[i], "_"))[3])
-       # array_name[i] <- paste0(variable_name,press_lev,"_",year_of_data)	# modifiy array name in case of press level
-     # }
-  #}
-    
-
-  #med<-ncvar_get(ncin,variable_name)			# get the variable 
-  #longitude_v<-ncvar_get(ncin,"longitude")
-  #latitude_v<-ncvar_get(ncin,"latitude")
-  #raw_time<-ncvar_get(ncin,"time")
-  
-  #assign(array_name[i],ff(med,dimnames =  
-                         #list(longitude_v,latitude_v,raw_time),dim = dim(med))) #save variable array on the disk
-
-# CORDEX data  ------------------------------------------------------------
-
-
-  assign(array_name[i],proj_read_toff(netcdf_file=nc.files[i]))
-  
-  rm(ncin)				          # remove dummy variables 
-  
-  gc()
-  #rm(med)
 }
+# CORDEX data  ------------------------------------------------------------
+system("mkdir projected")
+
+for (i in 1:length(nc.files)) {
+  
+  ta850 <-grep(pattern = 'ta850', x = nc.files,value = TRUE)
+  
+  print(1)
+  assign(array_name[i],proj_read_toff(netcdf_file=nc.files[i],
+                                      refrence_file= ta850))
+  
+  #rm(ncin)				          # remove dummy variables 
+  #rm(med)
+  gc()
+  
+}
+
+# MSL calculation  ----------------------------------------------------------
+
+#The calculate mean sea level pressure from geopotinal height and temperature at 850 hpa 
+geopotanisal_height <-grep(pattern = 'zg', x = array_name,value = TRUE)
+
+temp850<-grep(pattern = '850', x = array_name,value = TRUE)
+
+dim(get(geopotanisal_height))
+dim(get(temp850))
+
+DIMnames<-dimnames(get(temp850))
+
+longitude_v<-DIMnames[[1]]
+latitude_v<-DIMnames[[2]]
+raw_time<-DIMnames[[3]]
+
+dyn.load("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/fortran_subroutines/msl_calc.so")
+
+is.loaded("p850_to_msl")
+
+msl_array<- ff(array(data= 0.00),dim = dim(get(geopotanisal_height)))
+
+msl_array<-ff(.Fortran("p850_to_msl",
+                       lon = as.integer(length(longitude_v)),
+                       lat = as.integer(length(latitude_v)),
+                       time = as.integer(length(raw_time)),
+                       zg_array=as.numeric(get(geopotanisal_height)[]),
+                       ta_array=as.numeric(get(temp850)[]),
+                       output_array=as.numeric(msl_array[]))$output_array,
+              dim = dim(get(geopotanisal_height)),
+              dimnames =dimnames(get(geopotanisal_height)))
+
+#calculate vorticity --------------------------------------------------------
+ua850 <-grep(pattern = 'ua850', x = array_name,value = TRUE)
+
+va850 <-grep(pattern = 'va850', x = array_name,value = TRUE)
+
+
+image.plot(lon_lonlat);image.plot(lat_lonlat)
+
+dim(lon_lonlat);dim(lat_lonlat)
+
+delta_x_y<-ff(0, dim = c(dim(lon_lonlat)-1,2))
+
+
+
+dyn.load("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/fortran_subroutines/vorticity.so")
+
+is.loaded("relative_vorticity")
+
+DIMnames<-dimnames(get(va850))
+
+longitude_v<-unlist(DIMnames[[1]])
+latitude_v<-unlist(DIMnames[[2]])
+raw_time<-unlist(DIMnames[[3]])
+
+vorticity<- ff(array(data= -999),dim = dim(get(va850)))
+
+vorticity<- ff(.Fortran("relative_vorticity",
+                        lon = as.integer(length(longitude_v)),
+                        lat = as.integer(length(latitude_v)),
+                        time = as.integer(length(raw_time)),
+                        rlon = as.numeric(longitude_v),
+                        rlat = as.numeric(latitude_v),
+                        u_array =as.numeric(get(ua850)[]),
+                        u_array =as.numeric(get(va850)[]),
+                        output_array=as.numeric(vorticity[]))$output_array,
+               dim = dim(get(ua850)[]),
+               dimnames =dimnames(get(ua850)))
 # ==============================STEP1===========================================
 #Hourly vertically integrated temperature, the sum of the temperature at 
 #         700, 500, and 300 hPa in each grid point.
@@ -103,9 +162,16 @@ for (i in  1:length(temperature_on_levels)){
 # A local average hourly vertically integrated temperature is calculated in a 
 #   square, 7X7 grid points, centred at the grid point of interest.
 
-dyn.load("fortran_subroutines/vert_int_temp.so")		#load Fortran subroutine 
+dyn.load("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/fortran_subroutines/vert_int_temp.so")		#load Fortran subroutine 
 
 is.loaded("integrated_temperature")			#check if it is loaded 
+
+DIMnames<-dimnames(get(temperature_on_levels[2]))
+
+longitude_v<-DIMnames[[1]]
+latitude_v<-DIMnames[[2]]
+raw_time<-DIMnames[[3]]
+
 
 hourly_vertically_integrated_temp_mean<-ff(.Fortran("integrated_temperature",
                                                        input_array =as.numeric(hourly_vertically_integrated_temp[]),
@@ -184,6 +250,7 @@ hourly_vertically_integrated_temp_df$temp300<-hourly_temp_df$temp300
 
 hourly_vertically_integrated_temp_df$temp300_anomaly<-hourly_vertically_integrated_temp_df$temp300-
   hourly_vertically_integrated_temp_df$temp300_mean
+
 rm(hourly_square_temp_mean,
    hourly_temp_df,
    hourly_square_temp_mean_df)
@@ -303,11 +370,12 @@ rm(hourly_square_temp_mean,
 #temperature anomaly at 300 hPa. The signs of the temperature anomalies at 700,
 #500, and 300 hPa are compared.
 
-dyn.load("fortran_subroutines/warm_core_subroutine.so")
+dyn.load("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/fortran_subroutines/warm_core_subroutine.so")
 
 is.loaded("warm_core")
 
 warm_core_filter<- ff(array(data= 0.00),dim = dim(get(temp300)))
+
 warm_core_filter<-ff(.Fortran("warm_core",
                               lon = as.integer(length(longitude_v)),
                               lat = as.integer(length(latitude_v)),
@@ -334,25 +402,27 @@ temperature_on_levels <- grep(pattern = 't', x = array_name,value = TRUE)	#get t
 rm(list = temperature_on_levels)
 
 # ==============================STEP7===========================================  
-#The sea level pressure is the minimum in a centred 7X7 box.
-surface_pressure<-grep(pattern = 'msl', x = array_name,value = TRUE)
 
-dyn.load("fortran_subroutines/pressure_minimum/lowest_pressure_eye_storm.so")
+# find the eye of the storm ----------------------------------------------
+dyn.load("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/fortran_subroutines/pressure_minimum/lowest_pressure_eye_storm.so")
 
 is.loaded("eyeofthestorm")
 
-min_press_filter<- ff(array(data= 0.00),dim = dim(get(surface_pressure)))
+min_press_filter<- ff(array(data= 0.00),dim = dim(get(geopotanisal_height)))
+
 min_press_filter<-ff(.Fortran("eyeofthestorm",
                               lon = as.integer(length(longitude_v)),
                               lat = as.integer(length(latitude_v)),
                               time = as.integer(length(raw_time)),
                               a=as.integer(7),
                               b=as.integer(7),
-                              ps=as.numeric(get(surface_pressure)[]),
+                              ps=as.numeric(msl_array[]),
                               box= as.numeric(array(0,dim = c(7,7))),
                               filter=as.numeric(min_press_filter[]))$filter,
-                     dim = dim(get(surface_pressure)),
-                     dimnames =dimnames(get(surface_pressure)))
+                     dim = dim(get(geopotanisal_height)),
+                     dimnames =dimnames(get(geopotanisal_height)))
+
+gc()
 
 min_press_df<-reshape2::melt(min_press_filter[],value.name="min_press_filter")%>%as.ffdf()
 
@@ -365,8 +435,8 @@ rm(min_press_df,min_press_filter)
 rm(list= surface_pressure)
 # ==============================STEP8===========================================  
 # Obtain surface wind 
-u10<-grep(pattern = 'u10', x = array_name,value = TRUE)
-v10<-grep(pattern = 'v10', x = array_name,value = TRUE)
+u10<-grep(pattern = 'uas', x = array_name,value = TRUE)
+v10<-grep(pattern = 'vas', x = array_name,value = TRUE)
 
 ws<-ff(sqrt((get(u10)[])**2 +(get(v10)[])**2),
       dim = dim(get(u10)),
@@ -381,9 +451,7 @@ hourly_vertically_integrated_temp_df$surface_wind<-surface_wind_df$surface_wind
 rm(ws,surface_wind_df,list = u10)
 rm(list = v10)
 
-#Obtain vorticity 
-vorticity <-grep(pattern = 'vo', x = array_name,value = TRUE)
-
+# Obtain Vorticity --------------------------------------------------------
 
 vorticity_df<-reshape2::melt(get(vorticity)[],value.name="vorticity")%>%as.ffdf()
 
