@@ -22,7 +22,7 @@ proj_read_toff<- function(netcdf_file,refrence_file){
 		 "_proj.nc")
 	
 	
-	if(all(nc.var!=c("ua850","va850","uas","vas"))){
+	if(all(nc.var!=c("ua850","va850","uas","vas","ua300","va300"))){
 	
 	    first_command<-paste0("cdo remapbil,proj_WAS.txt ",        #cdo command 
 			  file_name," ",
@@ -44,8 +44,9 @@ proj_read_toff<- function(netcdf_file,refrence_file){
 	    system(paste0("mv ",output_file," projected/",
 	                  output_file))		#remove projected netcdf file 
 	}
+
 	# this part with the help from Dr. Silje Sorland from ETH Zurich
-	if(any(nc.var==c("ua850","va850"))){		# for wind over pressure levels
+	if(any(nc.var==c("ua850","va850","ua300","va300"))){		# for wind over pressure levels
 		
 	   output_file1<- paste0(unlist(strsplit(file_name,"[.]"))[1],  #tmp file name
 			 "_tmp.nc")

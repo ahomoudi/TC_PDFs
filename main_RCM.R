@@ -16,8 +16,9 @@ library(reshape2)
 library(tidyverse)
 library(magrittr)
 library(stringr)
+library(REdaS)
 #workdir<-system("pwd",intern = TRUE)
-setwd(workdir)
+#setwd(workdir)
 
 options(fftempdir = "/media/ahmed/Daten/ff")
 
@@ -25,9 +26,10 @@ getOption("fftempdir")
 
 #2.sources======================================================================
 source("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/functions/numextract.R")
+source("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/functions/haversine.R")
 source("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/proj_CORDEX.R")
 
-
+setwd("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/cordex")
 #2.Inputs=======================================================================
 # The inputs are relative vorticity at 850 hPa level, temperature at 300,500,700
 #hPa in May, June, September, October and November (1990-2019)
@@ -52,6 +54,8 @@ for (i in 1:length(nc.files)) {
   
   array_name[i] <- paste0(variable_name,"_",year_of_data)		#store array names in a vector 
 }
+
+rm(ncin)				          # remove dummy variables 
 # CORDEX data  ------------------------------------------------------------
 system("mkdir projected")
 
@@ -59,7 +63,7 @@ for (i in 1:length(nc.files)) {
   
   ta850 <-grep(pattern = 'ta850', x = nc.files,value = TRUE)
   
-  print(1)
+  print(i)
   assign(array_name[i],proj_read_toff(netcdf_file=nc.files[i],
                                       refrence_file= ta850))
   
@@ -74,7 +78,7 @@ for (i in 1:length(nc.files)) {
 #The calculate mean sea level pressure from geopotinal height and temperature at 850 hpa 
 geopotanisal_height <-grep(pattern = 'zg', x = array_name,value = TRUE)
 
-temp850<-grep(pattern = '850', x = array_name,value = TRUE)
+temp850<-grep(pattern = 'ta850', x = array_name,value = TRUE)
 
 dim(get(geopotanisal_height))
 dim(get(temp850))
@@ -106,38 +110,49 @@ ua850 <-grep(pattern = 'ua850', x = array_name,value = TRUE)
 
 va850 <-grep(pattern = 'va850', x = array_name,value = TRUE)
 
+DIMnames<-dimnames(get(ua850))
 
-image.plot(lon_lonlat);image.plot(lat_lonlat)
+longitude_v<-DIMnames[[1]]
+latitude_v<-DIMnames[[2]]
+raw_time<-DIMnames[[3]]
 
-dim(lon_lonlat);dim(lat_lonlat)
+DIM<-c(length(longitude_v),length(latitude_v),length(raw_time))
 
-delta_x_y<-ff(0, dim = c(dim(lon_lonlat)-1,2))
+#Calculation of delta x and delta y 
+deltay<-vector(mode = "double",length = DIM[1])
+deltax<-vector(mode = "double",length = DIM[2])
 
+for (y in 1:DIM[2]) { 
+  deltax[y]<-haversine_in_R(longitude_v[50],latitude_v[y],longitude_v[51],latitude_v[y])
+}
+for (x in 1:DIM[1]) { 
+  deltay[x]<-haversine_in_R(longitude_v[x],latitude_v[35],longitude_v[x],latitude_v[36])
+}
 
+deltay<-mean(deltay)
 
 dyn.load("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/fortran_subroutines/vorticity.so")
 
 is.loaded("relative_vorticity")
 
-DIMnames<-dimnames(get(va850))
 
-longitude_v<-unlist(DIMnames[[1]])
-latitude_v<-unlist(DIMnames[[2]])
-raw_time<-unlist(DIMnames[[3]])
-
-vorticity<- ff(array(data= -999),dim = dim(get(va850)))
+vorticity<- ff(array(data= -99),dim = dim(get(va850)))
 
 vorticity<- ff(.Fortran("relative_vorticity",
-                        lon = as.integer(length(longitude_v)),
-                        lat = as.integer(length(latitude_v)),
-                        time = as.integer(length(raw_time)),
-                        rlon = as.numeric(longitude_v),
-                        rlat = as.numeric(latitude_v),
-                        u_array =as.numeric(get(ua850)[]),
-                        u_array =as.numeric(get(va850)[]),
+                        m= as.integer(DIM[1]),
+                        n = as.integer(DIM[2]),
+                        o= as.integer(DIM[3]),
+                        u=as.numeric(get(ua850)[]),
+                        v=as.numeric(get(va850)[]),
+                        deltax =as.numeric(deltax),
+                        deltay=as.numeric(deltay),
                         output_array=as.numeric(vorticity[]))$output_array,
-               dim = dim(get(ua850)[]),
+               dim = dim(get(ua850)),
                dimnames =dimnames(get(ua850)))
+
+#vorticity[vorticity==-99]<-NA
+
+rm(ua850,va850)
 # ==============================STEP1===========================================
 #Hourly vertically integrated temperature, the sum of the temperature at 
 #         700, 500, and 300 hPa in each grid point.
@@ -199,7 +214,7 @@ colnames(hourly_vertically_integrated_temp_mean_df)<-c("LON","LAT","TIME","hourl
 hourly_vertically_integrated_temp_df$hourly_vertically_integrated_temp_mean<-
   hourly_vertically_integrated_temp_mean_df$hourly_vertically_integrated_temp_mean
 
-
+#gc()
 
 # ==============================STEP3===========================================
 # The anomalous vertically integrated hourly temperature in the grid point at the 
@@ -221,7 +236,7 @@ rm(hourly_vertically_integrated_temp,
 #AT 300 hPa#####################################################################
 temp300<-grep(pattern = '300', x = array_name,value = TRUE)
 
-dyn.load("fortran_subroutines/vert_int_temp.so")
+dyn.load("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/fortran_subroutines/vert_int_temp.so")
 
 is.loaded("integrated_temperature")
 
@@ -258,7 +273,7 @@ rm(hourly_square_temp_mean,
 #AT 500 hPa#####################################################################
 temp500<-grep(pattern = '500', x = array_name,value = TRUE)
 
-dyn.load("fortran_subroutines/vert_int_temp.so")
+dyn.load("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/fortran_subroutines/vert_int_temp.so")
 
 is.loaded("integrated_temperature")
 
@@ -294,7 +309,7 @@ rm(hourly_square_temp_mean,
 #AT 700 hPa#####################################################################
 temp700<-grep(pattern = '700', x = array_name,value = TRUE)
 
-dyn.load("fortran_subroutines/vert_int_temp.so")
+dyn.load("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/fortran_subroutines/vert_int_temp.so")
 
 is.loaded("integrated_temperature")
 
@@ -331,7 +346,7 @@ rm(hourly_square_temp_mean,
 #AT 850 hPa#####################################################################
 temp850<-grep(pattern = '850', x = array_name,value = TRUE)
 
-dyn.load("fortran_subroutines/vert_int_temp.so")
+dyn.load("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/fortran_subroutines/vert_int_temp.so")
 
 is.loaded("integrated_temperature")
 
@@ -432,7 +447,7 @@ hourly_vertically_integrated_temp_df$min_press<-min_press_df$min_press
 
 rm(min_press_df,min_press_filter)
 
-rm(list= surface_pressure)
+#rm(list= surface_pressure)
 # ==============================STEP8===========================================  
 # Obtain surface wind 
 u10<-grep(pattern = 'uas', x = array_name,value = TRUE)
@@ -453,7 +468,7 @@ rm(list = v10)
 
 # Obtain Vorticity --------------------------------------------------------
 
-vorticity_df<-reshape2::melt(get(vorticity)[],value.name="vorticity")%>%as.ffdf()
+vorticity_df<-reshape2::melt(vorticity[],value.name="vorticity")%>%as.ffdf()
 
 colnames(vorticity_df)<-c("LON","LAT","TIME","vorticity")
 
@@ -461,7 +476,6 @@ hourly_vertically_integrated_temp_df$vorticity<-vorticity_df$vorticity
 
 rm(vorticity_df)
 
-rm(list = vorticity)
 # ==============================STEP9===========================================  
 #Filtering and writing to text files 
 nop <- which(hourly_vertically_integrated_temp_df$warm_core[]==0.0 &
@@ -475,8 +489,11 @@ print(c("The number of unfilttered points is ", nrow(hourly_vertically_integrate
 print(c("The number of filttered points is ", nrow(hourly_vertically_integrated_temp_df_filtered)))
 
 
+#write.table.ffdf(x= hourly_vertically_integrated_temp_df_filtered,
+               #  file =paste0("/lustre/scratch2/ws/1/ahho623a-FRM_PDFs_project/Results/warm_core_points_",year_of_data,"_.txt"))
+
 write.table.ffdf(x= hourly_vertically_integrated_temp_df_filtered,
-                 file =paste0("/lustre/scratch2/ws/1/ahho623a-FRM_PDFs_project/Results/warm_core_points_",year_of_data,"_.txt"))
+                 file =paste0("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/Results/warm_core_points_",year_of_data,"_.txt"))
 
 
 #write.table.ffdf(x= hourly_vertically_integrated_temp_df,
