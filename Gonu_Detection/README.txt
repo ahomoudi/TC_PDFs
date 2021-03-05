@@ -1,11 +1,10 @@
 ATENCION
 ********
 
-pythresholdsERA5_yemen, es el programa principal. Es el que debes ejecutar. Acá se ejecutan los pasos generales.
+pythresholdsERA5_yemen, is the main file. 
 
-pythreshold_support es un modulo de soporte. Contiene todas las funciones de procesamiento.
+pythreshold_support is a support module with all the support functions.
 
-
-En la carpeta "data" deben estar los archivos netCDF4 y el archivo csv
+In the data folder should be the netCDF4 and the csv file
 
 
