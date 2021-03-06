@@ -1,5 +1,3 @@
-ATENCION
-********
 
 pythresholdsERA5_yemen, is the main file. 
 
