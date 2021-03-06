@@ -37,7 +37,7 @@ conn = SearchConnection('http://esgf-data.dkrz.de/esg-search', distrib=False) #c
 # Note: This never worked in the HPC, so I ran it in my computer and then copied the entire 
 # content of my ~/esg folder to the same folder in the home in the HPC
 #
-#OPENID = 'https://esgf-data.dkrz.de/esgf-idp/openid/anaguilarc'
+#OPENID = 'https://esgf-data.dkrz.de/esgf-idp/openid/******'
 #lm.logon_with_openid(openid=OPENID, password=None, bootstrap=True)
 #lm.is_logged_on()
 #
