@@ -1,8 +1,8 @@
 library(ggplot2)
 
 
-all_filtered <- read.csv("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/all_filtered.csv")
-
+#all_filtered <- read.csv("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/all_filtered.csv")
+all_filtered <- read.csv("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/all_filtered_CORDEX.csv")
 
 p<-ggplot(all_filtered, aes(x=vorticity)) + 
 	geom_histogram(color="black", fill="white", binwidth = 0.00001)
@@ -42,6 +42,7 @@ Result_PDF$vorticity_PDF<-table(cut(c(all_filtered$vorticity/y),BREAKS, right=FA
 Result_PDF$joint_PDF<-Result_PDF$temp_PDF * Result_PDF$vorticity_PDF
 
 # joint PDF 1 #######################################
+library(dplyr)
 df<- all_filtered %>% dplyr::select("vorticity","anomalous")
 
 colnames(df)<-c("x","y")
@@ -116,7 +117,8 @@ fig_a<- ggplot() +
              		 	    title.position = "left",
              		 	    label.position = "bottom"))+
 	scale_y_continuous(expand = c(0,0),limits = c(-5,15), breaks = seq(-5,15,1))+
-	scale_x_continuous(expand = c(0,0),limits = c(0,15), breaks = seq(0,15,1))+
+	#scale_x_continuous(expand = c(0,0),limits = c(0,15), breaks = seq(0,15,1))+
+	scale_x_continuous(expand = c(0,0),limits = c(0,10), breaks = seq(0,10,1))+
 	theme_light(base_size = 11) +
 	
 	theme(panel.grid = element_blank(),
@@ -162,8 +164,11 @@ fig_b<- ggplot() +
 		 guide = guide_colourbar(direction = "horizontal",
 		 	    title.position = "left",
 		 	    label.position = "bottom"))+
-	scale_y_continuous(expand = c(0,0),limits = c(-5,15), breaks = seq(-5,15,1))+
-	scale_x_continuous(expand = c(0,0),limits = c(0,15), breaks = seq(0,15,1))+
+	#scale_y_continuous(expand = c(0,0),limits = c(-5,15), breaks = seq(-5,15,1))+
+	#scale_x_continuous(expand = c(0,0),limits = c(0,15), breaks = seq(0,15,1))+
+	
+	scale_y_continuous(expand = c(0,0),limits = c(-5,12), breaks = seq(-5,12,1))+
+	scale_x_continuous(expand = c(0,0),limits = c(0,10), breaks = seq(0,10,1))+
 	theme_light(base_size = 11) +
 	
 	theme(panel.grid = element_blank(),
@@ -197,6 +202,8 @@ ffigure_ALL<- ggarrange(rm_legend(fig_a),rm_legend(fig_b),
 	        common.legend = TRUE,
 	        legend.grob = commom_legend)
 
-ggsave(plot = ffigure_ALL, filename = paste0("Joint_PDF.png"),
-       height = 100, width =175, units = "mm", dpi = 300, device = "png",limitsize = FALSE)             	
+#ggsave(plot = ffigure_ALL, filename = paste0("Joint_PDF.png"),
+       #height = 100, width =175, units = "mm", dpi = 300, device = "png",limitsize = FALSE)             	
 
+ggsave(plot = ffigure_ALL, filename = paste0("Joint_PDF_CORDEX.png"),
+       height = 100, width =175, units = "mm", dpi = 300, device = "png",limitsize = FALSE)   

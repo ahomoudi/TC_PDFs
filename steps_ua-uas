@@ -1,0 +1,31 @@
+# for correcting uas (e.g., uas850) on pressure levels 
+ncks -C -v ua850,time,rotated_pole,plev input_file.nc file_tmp.nc 
+
+# okay file e.g., ta850_WAS-22_NCC-NorESM1-M_historical_r1i1p1_CLMcom-ETH-COSMO-crCLIM-v1-1_v1_6hr_2005010100-2005123118.nc
+
+ncks -A -v rlat okay_file.nc file_tmp.nc
+
+ncks -A -v rlon okay_file.nc file_tmp.nc
+
+ncks -A -v lon okay_file.nc file_tmp.ncc
+
+ncks -A -v lat okay_file.nc file_tmp.nc
+
+
+cdo remapbil,proj_WAS.txt file_tmp.nc file_projected.nc
+
+
+ncks -C -v ua850,time,rotated_pole,height input_file.nc file_tmp.nc 
+
+# okay file e.g., ta850_WAS-22_NCC-NorESM1-M_historical_r1i1p1_CLMcom-ETH-COSMO-crCLIM-v1-1_v1_6hr_2005010100-2005123118.nc
+
+ncks -A -v rlat okay_file.nc file_tmp.nc
+
+ncks -A -v rlon okay_file.nc file_tmp.nc
+
+ncks -A -v lon okay_file.nc file_tmp.ncc
+
+ncks -A -v lat okay_file.nc file_tmp.nc
+
+
+cdo remapbil,proj_WAS.txt file_tmp.nc file_projected.nc
