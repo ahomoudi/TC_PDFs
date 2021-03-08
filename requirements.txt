@@ -1,0 +1,7 @@
+ncdf4
+ff
+ffbase
+reshape2
+tidyverse
+magrittr
+stringr
