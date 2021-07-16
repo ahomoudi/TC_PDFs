@@ -1,14 +1,58 @@
 #example of vorticity
+library(fields)
+par(mfrow=c(3,3))
+ua850<-array(runif(228*160*2,-10,10),dim = c(228,160,2))
 
-u850<-get(ua850)[1:4,1:4,1]
+#ua850[1:114,1:80]<- -5 ;ua850[1:114,81:160]<-5
+#ua850[115:228,1:80]<- -5;ua850[115:228,81:160]<-5
 
-v850<-get(va850)[1:4,1:4,1]
+image.plot(ua850[,,1])+title("u wind")
 
-lon = lon_lonlat[1:40,1:40]
+va850<-array(runif(228*160*2,-10,10),dim = c(228,160,2))
 
-lat = lat_lonlat[1:40,1:40]
 
-image(sqrt(u850**2 + v850**2))
+#va850[1:114,1:80]<- -5 ;va850[1:114,81:160]<- -5
+#va850[115:228,1:80]<-  5;va850[115:228,81:160]<-5
+
+image.plot(va850[,,1])+title("v wind")
+longitude_v<-seq(30,228+29,1)
+
+latitude_v<- seq(0,39.75,0.25)
+
+DIMNAMES<- list(lon =longitude_v, lat= latitude_v,time=c(1,2))
+
+DIM<-dim(ua850)
+
+ws_layer_time_mean<-array(sqrt(ua850**2+va850**2),dim = DIM, dimnames = DIMNAMES)
+
+library(reshape2)
+
+wind.dt<-melt(ws_layer_time_mean)
+
+colnames(wind.dt)<-c("lon","lat","time","mean_wind")
+
+wind.dt$wind_dir<-melt(rad2deg(atan2(va850,ua850)))$value
+
+wind.dt$u<-melt(ua850)$value
+wind.dt$v<-melt(va850)$value
+
+scaler <- 1
+
+library(ggplot2)
+p <- ggplot() +geom_raster(data=wind.dt, aes(fill=mean_wind,x=lon,y=lat),interpolate = TRUE)+
+	geom_segment(data=wind.dt,
+	             aes(x=lon, y=lat, xend=lon+u*scaler, yend=lat+v*scaler),
+	             arrow=arrow(length = unit(0.5,"cm")), size = 0.1)+
+	scale_fill_gradientn(colours = terrain.colors(5))
+
+
+#print(p)
+
+image.plot(ws_layer_time_mean[,,1])+title("wind speed")
+
+image.plot(rad2deg(atan2(va850,ua850))[,,1])+title("wind direction")
+
+#image(sqrt(ua850**2 + va850**2))
 
 haversine_in_R<-function(lon1,lat1,lon2,lat2){
 	library(REdaS)
@@ -27,39 +71,71 @@ haversine_in_R<-function(lon1,lat1,lon2,lat2){
 	return(meters)
 }
 
-delta<-array(00, dim = c(365,239,2))
+DIM<-c(dim(ua850))
 
-for ( i in 2:240){ # in lat
-	
-	lon_col<-lon_lonlat[,i-1]
-	lat_col<-lat_lonlat[,i-1]
-	result_col<-lat_col
-	for ( j in 2:366){
-	result_col[j-1]<-haversine_in_R(lon1 = lon_col[j-1] ,lon2 = lon_col[j] ,
-		            lat1 =lat_col[j-1], lat2 =lat_col[j])	
-	}
-	delta[,i-1,1]<-result_col[-length(result_col)]
- 
+#Calculation of delta x and delta y 
+deltay<-vector(mode = "double",length = DIM[1])
+deltax<-vector(mode = "double",length = DIM[2])
+
+for (y in 1:DIM[2]) { 
+	deltax[y]<-haversine_in_R(longitude_v[1],latitude_v[y],longitude_v[2],latitude_v[y])
+}
+for (x in 1:DIM[1]) { 
+	deltay[x]<-haversine_in_R(longitude_v[x],latitude_v[1],longitude_v[x],latitude_v[2])
 }
 
-for ( i in 2:366){ # in lat
-	
-	lon_row<-lon_lonlat[i-1,]
-	lat_row<-lat_lonlat[i-1,]
-	result_row<-lat_row
-	for ( j in 2:240){
-		result_row[j-1]<-haversine_in_R(lon1 = lon_col[j-1] ,lon2 = lon_col[j] ,
-			            lat1 =lat_col[j-1], lat2 =lat_col[j])	
-	}
-	delta[i-1,,2]<-result_row[-length(result_row)]
-	
+plot(latitude_v,deltax)+title("Delta X")
+
+plot(longitude_v,deltay)+title("Delta Y")
+
+deltay<-mean(deltay)
+
+dyn.load("/media/ahmed/Volume/TC_FRM/R/TC_PDFs/fortran_subroutines/vorticity.so")
+
+is.loaded("relative_vorticity")
+
+vorticity<- array(data= -99,dim = dim(va850))
+
+
+
+#par(mfrow=c(1,3))
+
+image.plot(vorticity[,,1])+title("empty array for vorticity")
+
+a= 0.5
+
+mone=DIM[1]-2 
+none=DIM[2]-2
+ttt<-DIM[3]
+u_array<-ua850
+v_array<-va850
+for(tt in 1:ttt){
+for (x in 2:mone){
+for (y in 2:none){
+	vorticity[x,y,tt] = (-1.00 *a * v_array[x,y-1,tt]/deltax[y]) 
+		+ (a * v_array[x,y+1,tt]/deltax[y]) 
+		- (-1.00 * a * u_array[x-1,y,tt]/deltay) 
+		+ (a * u_array[x+1,y,tt]/deltay) 		
 }
+}
+}
+vorticity[vorticity==-99]<-NA
 
-library(fields)
-par(mfrow=c(1,2))
+image.plot(vorticity[,,1])+title("Vorticity from R")
 
-image.plot(delta[,,1])
+vorticity2<- array(data= 00,dim = dim(va850))
 
-image.plot(delta[,,2])
+vorticity2<- array(.Fortran("relative_vorticity",
+	    m= as.integer(DIM[1]),
+	    n = as.integer(DIM[2]),
+	    o= as.integer(DIM[3]),
+	    u=as.numeric(ua850),
+	    v=as.numeric(va850),
+	    deltax =as.numeric(deltax),
+	    deltay=as.numeric(deltay),
+	    output_array=as.numeric(vorticity2))$output_array,
+               dim = dim(ua850))
 
-image.plot(delta[,,1]*delta[,,2])
+DI
+image.plot(vorticity2[,,1])+title("Vorticity from fortran")
+
